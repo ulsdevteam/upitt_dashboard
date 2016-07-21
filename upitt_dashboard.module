@@ -10,7 +10,7 @@ function upitt_dashboard_menu() {
       'description' => 'Configure options related to the Admin Dashboard.',
       'page callback' => 'drupal_get_form',
       'page arguments' => array('upitt_dashboard_admin_form'),
-      'access arguments' => array(UPITT_ISLANDORA_MEMBEROFSITE_MANAGE),
+      'access arguments' => array('access dashboard'),
       'file' => 'includes/admin.form.inc',
     ),
   );
@@ -18,27 +18,26 @@ function upitt_dashboard_menu() {
   return $items;
 }
 
+function _get_reports_variable_get() {
+  return unserialize(variable_get('upitt_dashboard_block_bids', ''));
+}
+
 /**
  * Implements hook_block_info().
  */
 function upitt_dashboard_block_info() {
-  $block_bids = variable_get('upitt_dashboard_block_bids', '');
-  $block_bids_arr = explode(",", $block_dsids);
-  foreach ($block_bids_arr as $block_bid) {
-    $bid = trim($block_bid);
-    $blocks[$bid] = array(
-      'info' => t('Islandora Datastream Block {'.$bid.'}'),
-      'cache' => DRUPAL_CACHE_PER_PAGE,
-    );
-  }
-
+  $active_reports = _get_reports_variable_get();
   $blocks = array(
-    'dashboard-report1-test' => array(
-      'info' => t('Dashboard TEST Block'),
+    'test1' => array(
+      'info' => t('Dashboard report TEST Block'),
+      'status' => array_key_exists('test1', $active_reports) ? 1 : 0,
+      'region' => 'dashboard_inactive',
       'cache' => DRUPAL_CACHE_PER_PAGE,
     ),
-    'dashboard-report2-test' => array(
-      'info' => t('Dashboard TEST Block'),
+    'test2' => array(
+      'info' => t('Dashboard report 2 TEST Block'),
+      'status' => array_key_exists('test2', $active_reports) ? 1 : 0,
+      'region' => 'dashboard_inactive',
       'cache' => DRUPAL_CACHE_PER_PAGE,
     ),
   );
@@ -49,63 +48,90 @@ function upitt_dashboard_block_info() {
  * Implements hook_block_view().
  */
 function upitt_dashboard_block_view($delta = '') {
+  global $theme_key;
   if ($delta == "*uninitialized*") { exit; }
-
-  if (strstr($delta, 'idb-') <> '') {
-      $block = array();
-      $dsid = str_replace('idb-', '', $delta);
-      include_once('sites/all/modules/islandora/includes/tuque.inc');
-
-      $item = menu_get_item();
-      if (isset($_SESSION['pid']) || (isset($item['page_arguments'][0]) && is_object($item['page_arguments'][0]) && (get_class($item['page_arguments'][0]) == 'IslandoraFedoraObject'))) {
-          $fedora_object = (isset($_SESSION['pid'])) ? islandora_object_load($_SESSION['pid']) : $item['page_arguments'][0];
-          unset($_SESSION['pid']);
-          $connection = islandora_get_tuque_connection();
-          if ($connection) {
-              try {
-                  $info = $connection->api->a->describeRepository();
-                  // If we are able to successfully call API-M::getDatastream, assume we are
-                  // an authenticated user, as API-M is usally locked down.
-                  $datastream = $fedora_object[$dsid];
-                  $content = '';
-                  if (($datastream) && (is_object($datastream))) {
-                    // handle the various types of content there, the default will be rendered as straight text
-                    switch ($datastream->mimetype) {
-                      case 'image/jpeg':
-                      case 'image/jpg':
-                      case 'image/gif':
-                      case 'image/png':
-                        if (isset($fedora_object[$dsid])) {
-                          $collection_tn_url = url("islandora/object/{$fedora_object->id}/datastream/{$dsid}/view");
-                          $params = array(
-                            'title' => $fedora_object->label,
-                            'alt' => $fedora_object->label,
-                            'path' => $collection_tn_url);
-                          $content = theme('image', $params);
-                        }
-                        break;
-                      default:
-                        $tempFilename = tempnam("/tmp", "DS_html_");
-                        $datastream->getContent($tempFilename);
-                        $lines = file($tempFilename);
-                        $content = '';
-                        foreach ($lines as $line) {
-                          $line = mb_ereg_replace('(\x92)', "'", $line);
-                          $content .= mb_convert_encoding($line, 'HTML-ENTITIES', "UTF-8");
-                        }
-                        @unlink($tempFilename);
-                        break;
-                    }
-                  }
-
-                  // blank title so that it doesn't cause a big h3
-                  $block['subject'] = '';
-                  $block['content'] =  theme('datastream_block',array('datastream_contents' => $content));
-                  return $block;
-              } catch (Exception $e) {
-                  exit;
-              }
-          }
-      }
+  $reports = _get_reports_variable_get();
+  $blocks = _block_rehash();
+  if (array_key_exists($delta, $reports)) {
+    $fn = 'upitt_dashboard_' . $delta . '_content';
+    @list($subject, $content) = (function_exists($fn)) ? $fn() : 
+      array('Subject not set {' . $delta . '}',
+          'Content creation function "' . $fn . '{}" does not exist for block "' . $delta . '".');
+    $block['subject'] = $subject;
+    $block['content'] = $content;
+    return $block;
   }
+}
+
+function upitt_dashboard_block_view_alter(&$data, $block) {
+//   dpm($data);
+//   dpm($block);
+}
+
+function upitt_dashboard_test1_content() {
+  $subject = 'Orphan page report';
+  module_load_include('inc', 'islandora_solr_search', 'includes/utilities');
+  $query_processor = new IslandoraSolrQueryProcessor();
+  $query_processor->solrQuery = '(PID:pitt\:*) AND -RELS_EXT_isPageOf_uri_s:["" TO *] AND RELS_EXT_hasModel_uri_s:(*info\:fedora\/islandora\:pageCModel*)';
+  $query_processor->solrStart = 0;
+  $query_processor->solrLimit = 1000;
+  $query_processor->solrParams = array(
+    'fl' => "PID,fedora_datastreams_ms,isMemberOfSite,fgs_label_s,RELS_EXT_isMemberOfSite_uri_ms",
+    'fq' => "",
+  );
+  $url = parse_url(variable_get('islandora_solr_url', 'localhost:8080/solr'));
+  $solr = new Apache_Solr_Service($url['host'], $url['port'], $url['path'] . '/');
+  $solr->setCreateDocuments(FALSE);
+  $results = array();
+  try {
+    $search_results = $solr->search($query_processor->solrQuery, $query_processor->solrStart, $query_processor->solrLimit, $query_processor->solrParams, 'GET');
+    $tmp = json_decode($search_results->getRawResponse(), TRUE);
+    if ($tmp['response']['numFound'] > 0) {
+      $results = array();
+      foreach ($tmp['response']['docs'] as $trip) {
+        $results[]['object']['value'] = $trip['PID'];
+      }
+    }
+    else {
+      $results[] = 'No matching records found.';
+    }
+  }
+  catch (Exception $e) {
+  }
+  $content = implode("\n", $results);
+  return array($subject, $content);
+}
+
+function upitt_dashboard_test2_content() {
+  $subject = 'WebServices needs to add TN_LARGE';
+  module_load_include('inc', 'islandora_solr_search', 'includes/utilities');
+  $query_processor = new IslandoraSolrQueryProcessor();
+  $query_processor->solrQuery = '(PID:pitt\:*) AND (RELS_EXT_hasModel_uri_s:info\:fedora\/islandora\:bookCModel)';
+  $query_processor->solrStart = 0;
+  $query_processor->solrLimit = 1000;
+  $query_processor->solrParams = array(
+    'fl' => "PID,fedora_datastreams_ms,isMemberOfSite,fgs_label_s,RELS_EXT_isMemberOfSite_uri_ms",
+    'fq' => "-fedora_datastream_latest_TN_LARGE_ID_ms:[* TO *]",
+  );
+  $url = parse_url(variable_get('islandora_solr_url', 'localhost:8080/solr'));
+  $solr = new Apache_Solr_Service($url['host'], $url['port'], $url['path'] . '/');
+  $solr->setCreateDocuments(FALSE);
+  $results = array();
+  try {
+    $search_results = $solr->search($query_processor->solrQuery, $query_processor->solrStart, $query_processor->solrLimit, $query_processor->solrParams, 'GET');
+    $tmp = json_decode($search_results->getRawResponse(), TRUE);
+    if ($tmp['response']['numFound'] > 0) {
+      $results = array();
+      foreach ($tmp['response']['docs'] as $trip) {
+        $results[]['object']['value'] = $trip['PID'];
+      }
+    }
+    else {
+      $results[] = 'No matching records found.';
+    }
+  }
+  catch (Exception $e) {
+  }
+  $content = implode("\n", $results);
+  return array($subject, $content);
 }

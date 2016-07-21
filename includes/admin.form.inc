@@ -16,27 +16,31 @@
  *   The Drupal form definition.
  */
 function upitt_dashboard_admin_form(array $form, array &$form_state) {
+  $reports = _get_reports_variable_get();
   $form = array(
     'options' => array(
       '#type' => 'fieldset',
-      '#title' => t('Lorem ipsum '),
-      'sitejump_domain' => array(
-        '#type' => 'textfield',
-        '#title' => t('Bibendum phasellus venenatis'),
-        '#description' => t('Sollicitudin ut. Ligula pulvinar turpis vehicula.'),
-        '#default_value' => variable_get('islandora_upitt_sitejump_domain', 'gamera.library.pitt.edu'),
+      '#title' => t('University of Pittsburgh Dashboard Settings'),
+      'display_generation_fieldset' => array(
+        '#type' => 'fieldset',
+        '#title' => t('Available report blocks'),
+        '#description' => t('Controls the blocks that become available for each user to add to their dashboard.'),
+        'test1' => array(
+          '#type' => 'checkbox',
+          '#title' => t('Dashboard report TEST Block.'),
+          '#default_value' => $reports['test1'],
+        ),
+        'test2' => array(
+          '#type' => 'checkbox',
+          '#title' => t('Dashboard report 2 TEST Block.'),
+          '#default_value' => $reports['test2'],
+        ),
       ),
-      'show_sitejump' => array(
-        '#type' => 'checkbox',
-        '#title' => t('Dolor sit amet, pharetra facilisi faucibus ligula lobortis in.'),
-        '#description' => t('Pede risus vel, mauris congue id mi ultrices lobortis ligula, vel rutrum. Quam auctor sit ultricies sit ut, proin et, mi nibh mauris suscipit.'),
-        '#default_value' => variable_get('islandora_upitt_show_sitejump', 1),
-      ),
-      'sitejump_tab_text' => array(
+      'permission_text' => array(
         '#type' => 'textfield',
-        '#title' => t('Fermentum sit'),
-        '#description' => t('Cras euismod ultrices metus pellentesque duis amet, nonummy suspendisse.'),
-        '#default_value' => variable_get('islandora_upitt_sitejump_tab_text', 'Site Jump'),
+        '#title' => t('Access Permission'),
+        '#description' => t('Permission which controls whether or not a dashboard is available.'),
+        '#default_value' => variable_get('upitt_dashboard_permission', 'access dashboard'),
       ),
     ),
     'submit' => array(
@@ -51,6 +55,16 @@ function upitt_dashboard_admin_form(array $form, array &$form_state) {
   return $form;
 }
 
+function _get_reports_form_values($form_state) {
+  if ($form_state['values']['test1'] > 0) {
+    $vals['test1'] = $form_state['values']['test1'];
+  }
+  if ($form_state['values']['test2'] > 0) {
+    $vals['test2'] = $form_state['values']['test2'];
+  }
+  return serialize($vals);
+}
+
 /**
  * Function that sets the Drupal variables with user's input.
  *
@@ -59,18 +73,19 @@ function upitt_dashboard_admin_form(array $form, array &$form_state) {
  * @param array $form_state
  *   The Drupal form state.
  */
-function upitt_dashboard_admin_submit(array $form, array &$form_state) {
+function upitt_dashboard_admin_form_submit(array $form, array &$form_state) {
   drupal_set_message(t('The settings have been updated!'));
   $id = $form_state['triggering_element']['#id'];
   switch ($id) {
     case 'edit-submit':
-      variable_set('upitt_dashboard_namespace', $form_state['values']['namespace']);
-      variable_set('upitt_dashboard_sites', $form_state['values']['sites']);
+      variable_set('upitt_dashboard_block_bids', _get_reports_form_values($form_state));
+      variable_set('upitt_dashboard_permission', $form_state['values']['permission_text']);
       break;
 
     case 'edit-reset':
-      variable_del('upitt_dashboard_namespace');
-      variable_del('upitt_dashboard_sites');
+      variable_del('upitt_dashboard_block_bids');
+      variable_del('upitt_dashboard_permission');
       break;
   }
 }
+
