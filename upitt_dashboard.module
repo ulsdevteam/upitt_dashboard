@@ -79,6 +79,10 @@ function upitt_dashboard_test1_content() {
     'fl' => "PID,fedora_datastreams_ms,isMemberOfSite,fgs_label_s,RELS_EXT_isMemberOfSite_uri_ms",
     'fq' => "",
   );
+  $headings = array('PID' => 'PID',
+                    'fgs_label_s' => 'Fedora label',
+                    'RELS_EXT_isMemberOfSite_uri_ms' => 'Member of Sites',
+                    'fedora_datastreams_ms' => 'Datastreams');
   $url = parse_url(variable_get('islandora_solr_url', 'localhost:8080/solr'));
   $solr = new Apache_Solr_Service($url['host'], $url['port'], $url['path'] . '/');
   $solr->setCreateDocuments(FALSE);
@@ -113,25 +117,35 @@ function upitt_dashboard_test2_content() {
     'fl' => "PID,fedora_datastreams_ms,isMemberOfSite,fgs_label_s,RELS_EXT_isMemberOfSite_uri_ms",
     'fq' => "-fedora_datastream_latest_TN_LARGE_ID_ms:[* TO *]",
   );
+  $headings = array('PID' => 'PID',
+                    'fgs_label_s' => 'Fedora label',
+                    'RELS_EXT_isMemberOfSite_uri_ms' => 'Member of Sites',
+                    'fedora_datastreams_ms' => 'Datastreams');
   $url = parse_url(variable_get('islandora_solr_url', 'localhost:8080/solr'));
   $solr = new Apache_Solr_Service($url['host'], $url['port'], $url['path'] . '/');
   $solr->setCreateDocuments(FALSE);
-  $results = array();
   try {
     $search_results = $solr->search($query_processor->solrQuery, $query_processor->solrStart, $query_processor->solrLimit, $query_processor->solrParams, 'GET');
     $tmp = json_decode($search_results->getRawResponse(), TRUE);
     if ($tmp['response']['numFound'] > 0) {
-      $results = array();
-      foreach ($tmp['response']['docs'] as $trip) {
-        $results[]['object']['value'] = $trip['PID'];
-      }
-    }
-    else {
-      $results[] = 'No matching records found.';
+      $results = $tmp['response']['docs'];
     }
   }
   catch (Exception $e) {
+    $results = array();
   }
-  $content = implode("\n", $results);
+  $content = theme('data_row', $headings, $results);
   return array($subject, $content);
+}
+
+function upitt_dashboard_theme() {
+  return array(
+    'data_row' => array(
+      'template' => 'theme/data-row',
+      'variables' => array(
+        'headings' => NULL,
+        'rows' => NULL,
+      ),
+    ),
+  );
 }
