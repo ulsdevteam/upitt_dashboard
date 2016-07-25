@@ -92,9 +92,11 @@ function upitt_dashboard_test1_content($csv = FALSE, $start = 0) {
     $tmp = json_decode($search_results->getRawResponse(), TRUE);
     if ($tmp['response']['numFound'] > 0) {
       foreach ($tmp['response']['docs'] as $rec) {
-        if (isset($rec['PID']) && isset($rec['fgs_label_s'])) {
+        if (isset($rec['PID']) && isset($rec['fgs_label_s']) && !$csv) {
           $rec['PID'] = l($rec['PID'], '/islandora/object/' . $rec['PID']);
         }
+        $rec['RELS_EXT_isMemberOfSite_uri_ms'] = implode(", ", $rec['RELS_EXT_isMemberOfSite_uri_ms']);
+        $rec['fedora_datastreams_ms'] = implode(", ", $rec['fedora_datastreams_ms']);
         $results[] = $rec;
       }
     }
@@ -103,7 +105,6 @@ function upitt_dashboard_test1_content($csv = FALSE, $start = 0) {
   }
 
   $download_csv = l(t('Download CSV'), 'upitt_dashboard/report_block/test1/downloadcsv');
-//  $download_csv = l(t('Download CSV'), '/solr/select?q=' . $q . '&fq=' . $fq . '&fl=' . $fl . '&wt=csv');
   if (!$csv) {
     $content = theme('data_row', array('headings' => $headings, 'rows' => $results, 'download_csv' => $download_csv));
   } else {
@@ -147,9 +148,11 @@ function upitt_dashboard_test2_content($csv = FALSE, $start = 0) {
     $tmp = json_decode($search_results->getRawResponse(), TRUE);
     if ($tmp['response']['numFound'] > 0) {
       foreach ($tmp['response']['docs'] as $rec) {
-        if (isset($rec['PID']) && isset($rec['fgs_label_s'])) {
+        if (isset($rec['PID']) && isset($rec['fgs_label_s']) && !$csv) {
           $rec['PID'] = l($rec['PID'], '/islandora/object/' . $rec['PID']);
         }
+        $rec['RELS_EXT_isMemberOfSite_uri_ms'] = implode(", ", $rec['RELS_EXT_isMemberOfSite_uri_ms']);
+        $rec['fedora_datastreams_ms'] = implode(", ", $rec['fedora_datastreams_ms']);
         $results[] = $rec;
       }
     }
@@ -157,7 +160,6 @@ function upitt_dashboard_test2_content($csv = FALSE, $start = 0) {
   catch (Exception $e) {
   }
   $download_csv = l(t('Download CSV'), 'upitt_dashboard/report_block/test2/downloadcsv');
-//  $download_csv = l(t('Download CSV'), '/solr/select?q=' . $q . '&fq=' . $fq . '&fl=' . $fl . '&wt=csv');
   if (!$csv) {
     $content = theme('data_row', array('headings' => $headings, 'rows' => $results, 'download_csv' => $download_csv));
   } else {
@@ -201,9 +203,10 @@ function upitt_dashboard_orphanManuscript_content($csv = FALSE, $start = 0) {
     $tmp = json_decode($search_results->getRawResponse(), TRUE);
     if ($tmp['response']['numFound'] > 0) {
       foreach ($tmp['response']['docs'] as $rec) {
-        if (isset($rec['PID']) && isset($rec['fgs_label_s'])) {
+        if (isset($rec['PID']) && isset($rec['fgs_label_s']) && !$csv) {
           $rec['PID'] = l($rec['PID'], '/islandora/object/' . $rec['PID']);
         }
+        $rec['RELS_EXT_isMemberOfSite_uri_ms'] = implode(", ", $rec['RELS_EXT_isMemberOfSite_uri_ms']);
         $results[] = $rec;
       }
     }
@@ -211,7 +214,6 @@ function upitt_dashboard_orphanManuscript_content($csv = FALSE, $start = 0) {
   catch (Exception $e) {
   }
   $download_csv = l(t('Download CSV'), 'upitt_dashboard/report_block/orphanManuscript/downloadcsv');
-//  $download_csv = l(t('Download CSV'), '/solr/select?q=' . $q . '&fq=' . $fq . '&fl=' . $fl . '&wt=csv');
   if (!$csv) {
     $content = theme('data_row', array('headings' => $headings, 'rows' => $results, 'download_csv' => $download_csv));
   } else {
@@ -248,9 +250,8 @@ function upitt_dashboard_downloadcsv($form_state, $form, $block_delta) {
     array('Subject not set {' . $block_delta . '}',
           'Content creation function "' . $fn . '{}" does not exist for block "' . $block_delta . '".');
 
-  echo $content;
   foreach ($content as $content_line) {
-    echo $content_line . "\n";
+    echo $content_line;
   }
   // tell the browser it's going to be a csv file
   header('Content-Type: application/csv');
