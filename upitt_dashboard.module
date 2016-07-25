@@ -13,6 +13,11 @@ function upitt_dashboard_menu() {
       'access arguments' => array('administer site configuration'),
       'file' => 'includes/admin.form.inc',
     ),
+    'upitt_dashboard/report_block/%/downloadcsv' => array(
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('upitt_dashboard_downloadcsv', 2),
+      'access arguments' => array('administer site configuration'),
+    ),
   );
 
   return $items;
@@ -52,7 +57,7 @@ function upitt_dashboard_block_view($delta = '') {
   global $theme_key;
   if ($delta == "*uninitialized*") { exit; }
   $fn = 'upitt_dashboard_' . $delta . '_content';
-  @list($subject, $content) = (function_exists($fn)) ? $fn() : 
+  @list($subject, $content) = (function_exists($fn)) ? $fn(FALSE) :
     array('Subject not set {' . $delta . '}',
           'Content creation function "' . $fn . '{}" does not exist for block "' . $delta . '".');
   $block['subject'] = $subject;
@@ -60,7 +65,7 @@ function upitt_dashboard_block_view($delta = '') {
   return $block;
 }
 
-function upitt_dashboard_test1_content() {
+function upitt_dashboard_test1_content($csv = FALSE, $start = 0) {
   $subject = 'Orphan Page (BookCModel) report';
   module_load_include('inc', 'islandora_solr_search', 'includes/utilities');
   $query_processor = new IslandoraSolrQueryProcessor();
@@ -96,12 +101,26 @@ function upitt_dashboard_test1_content() {
   }
   catch (Exception $e) {
   }
-  $download_csv = l(t('Download CSV'), '/solr/select?q=' . $q . '&fq=' . $fq . '&fl=' . $fl . '&wt=csv');
-  $content = theme('data_row', array('headings' => $headings, 'rows' => $results, 'download_csv' => $download_csv));
+
+  $download_csv = l(t('Download CSV'), 'upitt_dashboard/report_block/test1/downloadcsv');
+//  $download_csv = l(t('Download CSV'), '/solr/select?q=' . $q . '&fq=' . $fq . '&fl=' . $fl . '&wt=csv');
+  if (!$csv) {
+    $content = theme('data_row', array('headings' => $headings, 'rows' => $results, 'download_csv' => $download_csv));
+  } else {
+    $filename = tempnam('/tmp', 'CSV_');
+    $fp = fopen($filename, 'w');
+    fputcsv($fp, $headings);
+    foreach ($results as $fields) {
+      fputcsv($fp, $fields);
+    }
+    fclose($fp);
+    $content = file($filename);
+    unset($filename);
+  }
   return array($subject, $content);
 }
 
-function upitt_dashboard_test2_content() {
+function upitt_dashboard_test2_content($csv = FALSE, $start = 0) {
   $subject = 'WebServices needs to add TN_LARGE';
   module_load_include('inc', 'islandora_solr_search', 'includes/utilities');
   $query_processor = new IslandoraSolrQueryProcessor();
@@ -137,12 +156,25 @@ function upitt_dashboard_test2_content() {
   }
   catch (Exception $e) {
   }
-  $download_csv = l(t('Download CSV'), '/solr/select?q=' . $q . '&fq=' . $fq . '&fl=' . $fl . '&wt=csv');
-  $content = theme('data_row', array('headings' => $headings, 'rows' => $results, 'download_csv' => $download_csv));
+  $download_csv = l(t('Download CSV'), 'upitt_dashboard/report_block/test2/downloadcsv');
+//  $download_csv = l(t('Download CSV'), '/solr/select?q=' . $q . '&fq=' . $fq . '&fl=' . $fl . '&wt=csv');
+  if (!$csv) {
+    $content = theme('data_row', array('headings' => $headings, 'rows' => $results, 'download_csv' => $download_csv));
+  } else {
+    $filename = tempnam('/tmp', 'CSV_');
+    $fp = fopen($filename, 'w');
+    fputcsv($fp, $headings);
+    foreach ($results as $fields) {
+      fputcsv($fp, $fields);
+    }
+    fclose($fp);
+    $content = file($filename);
+    unset($filename);
+  }
   return array($subject, $content);
 }
 
-function upitt_dashboard_orphanManuscript_content() {
+function upitt_dashboard_orphanManuscript_content($csv = FALSE, $start = 0) {
   $subject = 'Orphan manuscript ("Book")';
   module_load_include('inc', 'islandora_solr_search', 'includes/utilities');
   $query_processor = new IslandoraSolrQueryProcessor();
@@ -178,8 +210,21 @@ function upitt_dashboard_orphanManuscript_content() {
   }
   catch (Exception $e) {
   }
-  $download_csv = l(t('Download CSV'), '/solr/select?q=' . $q . '&fq=' . $fq . '&fl=' . $fl . '&wt=csv');
-  $content = theme('data_row', array('headings' => $headings, 'rows' => $results, 'download_csv' => $download_csv));
+  $download_csv = l(t('Download CSV'), 'upitt_dashboard/report_block/orphanManuscript/downloadcsv');
+//  $download_csv = l(t('Download CSV'), '/solr/select?q=' . $q . '&fq=' . $fq . '&fl=' . $fl . '&wt=csv');
+  if (!$csv) {
+    $content = theme('data_row', array('headings' => $headings, 'rows' => $results, 'download_csv' => $download_csv));
+  } else {
+    $filename = tempnam('/tmp', 'CSV_');
+    $fp = fopen($filename, 'w');
+    fputcsv($fp, $headings);
+    foreach ($results as $fields) {
+      fputcsv($fp, $fields);
+    }
+    fclose($fp);
+    $content = file($filename);
+    unset($filename);
+  }
   return array($subject, $content);
 }
 
@@ -194,4 +239,23 @@ function upitt_dashboard_theme() {
       ),
     ),
   );
+}
+
+function upitt_dashboard_downloadcsv($form_state, $form, $block_delta) {
+  // drupal_set_message('Download CSV for '. $block_delta);
+  $fn = 'upitt_dashboard_' . $block_delta . '_content';
+  @list($subject, $content) = (function_exists($fn)) ? $fn(TRUE) :
+    array('Subject not set {' . $block_delta . '}',
+          'Content creation function "' . $fn . '{}" does not exist for block "' . $block_delta . '".');
+
+  echo $content;
+  foreach ($content as $content_line) {
+    echo $content_line . "\n";
+  }
+  // tell the browser it's going to be a csv file
+  header('Content-Type: application/csv');
+  // tell the browser we want to save it instead of displaying it
+  $date = date('Y-m-d');
+  header('Content-Disposition: attachment; filename="export_' . $date . '_' . $block_delta . '.csv";');
+  drupal_exit();
 }
