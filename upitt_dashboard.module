@@ -10,7 +10,7 @@ function upitt_dashboard_menu() {
       'description' => 'Configure options related to the Admin Dashboard.',
       'page callback' => 'drupal_get_form',
       'page arguments' => array('upitt_dashboard_admin_form'),
-      'access arguments' => array('access dashboard'),
+      'access arguments' => array('administer site configuration'),
       'file' => 'includes/admin.form.inc',
     ),
   );
@@ -18,25 +18,26 @@ function upitt_dashboard_menu() {
   return $items;
 }
 
-function _get_reports_variable_get() {
-  return unserialize(variable_get('upitt_dashboard_block_bids', ''));
-}
-
 /**
  * Implements hook_block_info().
  */
 function upitt_dashboard_block_info() {
-  $active_reports = _get_reports_variable_get();
   $blocks = array(
     'test1' => array(
-      'info' => t('Dashboard report TEST Block'),
-      'status' => array_key_exists('test1', $active_reports) ? 1 : 0,
+      'info' => t('Dashboard - Orphan Page (BookCModel) report'),
+      'status' => 1,
       'region' => 'dashboard_inactive',
       'cache' => DRUPAL_CACHE_PER_PAGE,
     ),
     'test2' => array(
-      'info' => t('Dashboard report 2 TEST Block'),
-      'status' => array_key_exists('test2', $active_reports) ? 1 : 0,
+      'info' => t('Dashboard - WebServices needs to add TN_LARGE'),
+      'status' => 1,
+      'region' => 'dashboard_inactive',
+      'cache' => DRUPAL_CACHE_PER_PAGE,
+    ),
+    'orphanManuscript' => array(
+      'info' => t('Dashboard - Orphan manuscript ("Book")'),
+      'status' => 1,
       'region' => 'dashboard_inactive',
       'cache' => DRUPAL_CACHE_PER_PAGE,
     ),
@@ -50,37 +51,31 @@ function upitt_dashboard_block_info() {
 function upitt_dashboard_block_view($delta = '') {
   global $theme_key;
   if ($delta == "*uninitialized*") { exit; }
-  $reports = _get_reports_variable_get();
-  $blocks = _block_rehash();
-  if (array_key_exists($delta, $reports)) {
-    $fn = 'upitt_dashboard_' . $delta . '_content';
-    @list($subject, $content) = (function_exists($fn)) ? $fn() : 
-      array('Subject not set {' . $delta . '}',
+  $fn = 'upitt_dashboard_' . $delta . '_content';
+  @list($subject, $content) = (function_exists($fn)) ? $fn() : 
+    array('Subject not set {' . $delta . '}',
           'Content creation function "' . $fn . '{}" does not exist for block "' . $delta . '".');
-    $block['subject'] = $subject;
-    $block['content'] = $content;
-    return $block;
-  }
-}
-
-function upitt_dashboard_block_view_alter(&$data, $block) {
-//   dpm($data);
-//   dpm($block);
+  $block['subject'] = $subject;
+  $block['content'] = $content;
+  return $block;
 }
 
 function upitt_dashboard_test1_content() {
-  $subject = 'Orphan page report';
+  $subject = 'Orphan Page (BookCModel) report';
   module_load_include('inc', 'islandora_solr_search', 'includes/utilities');
   $query_processor = new IslandoraSolrQueryProcessor();
-  $query_processor->solrQuery = '(PID:pitt\:*) AND -RELS_EXT_isPageOf_uri_s:["" TO *] AND RELS_EXT_hasModel_uri_s:(*info\:fedora\/islandora\:pageCModel*)';
+  $q = '(PID:pitt\:*) AND -RELS_EXT_isPageOf_uri_s:["" TO *] AND RELS_EXT_hasModel_uri_s:(*info\:fedora\/islandora\:pageCModel*)';
+  $fq = "";
+  $fl = "PID,fedora_datastreams_ms,isMemberOfSite,fgs_label_s,RELS_EXT_isMemberOfSite_uri_ms";
+  $query_processor->solrQuery = $q;
   $query_processor->solrStart = 0;
   $query_processor->solrLimit = 1000;
   $query_processor->solrParams = array(
-    'fl' => "PID,fedora_datastreams_ms,isMemberOfSite,fgs_label_s,RELS_EXT_isMemberOfSite_uri_ms",
-    'fq' => "",
+    'fl' => $fl,
+    'fq' => $fq,
   );
   $headings = array('PID' => 'PID',
-                    'fgs_label_s' => 'Fedora label',
+                    'fgs_label_s' => 'Fedora Label',
                     'RELS_EXT_isMemberOfSite_uri_ms' => 'Member of Sites',
                     'fedora_datastreams_ms' => 'Datastreams');
   $url = parse_url(variable_get('islandora_solr_url', 'localhost:8080/solr'));
@@ -91,18 +86,18 @@ function upitt_dashboard_test1_content() {
     $search_results = $solr->search($query_processor->solrQuery, $query_processor->solrStart, $query_processor->solrLimit, $query_processor->solrParams, 'GET');
     $tmp = json_decode($search_results->getRawResponse(), TRUE);
     if ($tmp['response']['numFound'] > 0) {
-      $results = array();
-      foreach ($tmp['response']['docs'] as $trip) {
-        $results[]['object']['value'] = $trip['PID'];
+      foreach ($tmp['response']['docs'] as $rec) {
+        if (isset($rec['PID']) && isset($rec['fgs_label_s'])) {
+          $rec['PID'] = l($rec['PID'], '/islandora/object/' . $rec['PID']);
+        }
+        $results[] = $rec;
       }
-    }
-    else {
-      $results[] = 'No matching records found.';
     }
   }
   catch (Exception $e) {
   }
-  $content = implode("\n", $results);
+  $download_csv = l(t('Download CSV'), '/solr/select?q=' . $q . '&fq=' . $fq . '&fl=' . $fl . '&wt=csv');
+  $content = theme('data_row', array('headings' => $headings, 'rows' => $results, 'download_csv' => $download_csv));
   return array($subject, $content);
 }
 
@@ -110,33 +105,84 @@ function upitt_dashboard_test2_content() {
   $subject = 'WebServices needs to add TN_LARGE';
   module_load_include('inc', 'islandora_solr_search', 'includes/utilities');
   $query_processor = new IslandoraSolrQueryProcessor();
-  $query_processor->solrQuery = '(PID:pitt\:*) AND (RELS_EXT_hasModel_uri_s:info\:fedora\/islandora\:bookCModel)';
+  $q = '(PID:pitt\:*) AND (RELS_EXT_hasModel_uri_s:info\:fedora\/islandora\:bookCModel)';
+  $fq = "-fedora_datastream_latest_TN_LARGE_ID_ms:[* TO *]";
+  $fl = "PID,fedora_datastreams_ms,isMemberOfSite,fgs_label_s,RELS_EXT_isMemberOfSite_uri_ms";
+  $query_processor->solrQuery = $q;
   $query_processor->solrStart = 0;
   $query_processor->solrLimit = 1000;
   $query_processor->solrParams = array(
-    'fl' => "PID,fedora_datastreams_ms,isMemberOfSite,fgs_label_s,RELS_EXT_isMemberOfSite_uri_ms",
-    'fq' => "-fedora_datastream_latest_TN_LARGE_ID_ms:[* TO *]",
+    'fl' => $fl,
+    'fq' => $fq,
   );
   $headings = array('PID' => 'PID',
-                    'fgs_label_s' => 'Fedora label',
+                    'fgs_label_s' => 'Fedora Label',
                     'RELS_EXT_isMemberOfSite_uri_ms' => 'Member of Sites',
                     'fedora_datastreams_ms' => 'Datastreams');
   $url = parse_url(variable_get('islandora_solr_url', 'localhost:8080/solr'));
   $solr = new Apache_Solr_Service($url['host'], $url['port'], $url['path'] . '/');
   $solr->setCreateDocuments(FALSE);
+  $results = array();
   try {
     $search_results = $solr->search($query_processor->solrQuery, $query_processor->solrStart, $query_processor->solrLimit, $query_processor->solrParams, 'GET');
     $tmp = json_decode($search_results->getRawResponse(), TRUE);
     if ($tmp['response']['numFound'] > 0) {
-      $results = $tmp['response']['docs'];
+      foreach ($tmp['response']['docs'] as $rec) {
+        if (isset($rec['PID']) && isset($rec['fgs_label_s'])) {
+          $rec['PID'] = l($rec['PID'], '/islandora/object/' . $rec['PID']);
+        }
+        $results[] = $rec;
+      }
     }
   }
   catch (Exception $e) {
-    $results = array();
   }
-  $content = theme('data_row', $headings, $results);
+  $download_csv = l(t('Download CSV'), '/solr/select?q=' . $q . '&fq=' . $fq . '&fl=' . $fl . '&wt=csv');
+  $content = theme('data_row', array('headings' => $headings, 'rows' => $results, 'download_csv' => $download_csv));
   return array($subject, $content);
 }
+
+function upitt_dashboard_orphanManuscript_content() {
+  $subject = 'Orphan manuscript ("Book")';
+  module_load_include('inc', 'islandora_solr_search', 'includes/utilities');
+  $query_processor = new IslandoraSolrQueryProcessor();
+  $q = '(PID:pitt\:*) AND -RELS_EXT_isMemberOfCollection_uri_s:["" TO *] AND RELS_EXT_hasModel_uri_s:(*info\:fedora\/islandora\:bookCModel*)';
+  $fq = "";
+  $fl = "PID,RELS_EXT_hasModel_uri_s,RELS_EXT_isMemberOfSite_uri_ms,fgs_label_s";
+  $query_processor->solrQuery = $q;
+  $query_processor->solrStart = 0;
+  $query_processor->solrLimit = 10000;
+  $query_processor->solrParams = array(
+    'fl' => $fl,
+    'fq' => $fq,
+  );
+  $headings = array('PID' => 'PID',
+                    'fgs_label_s' => 'Fedora Label',
+                    'RELS_EXT_hasModel_uri_s' => 'hasModel',
+                    'RELS_EXT_isMemberOfSite_uri_ms' => 'Member of Sites');
+  $url = parse_url(variable_get('islandora_solr_url', 'localhost:8080/solr'));
+  $solr = new Apache_Solr_Service($url['host'], $url['port'], $url['path'] . '/');
+  $solr->setCreateDocuments(FALSE);
+  $results = array();
+  try {
+    $search_results = $solr->search($query_processor->solrQuery, $query_processor->solrStart, $query_processor->solrLimit, $query_processor->solrParams, 'GET');
+    $tmp = json_decode($search_results->getRawResponse(), TRUE);
+    if ($tmp['response']['numFound'] > 0) {
+      foreach ($tmp['response']['docs'] as $rec) {
+        if (isset($rec['PID']) && isset($rec['fgs_label_s'])) {
+          $rec['PID'] = l($rec['PID'], '/islandora/object/' . $rec['PID']);
+        }
+        $results[] = $rec;
+      }
+    }
+  }
+  catch (Exception $e) {
+  }
+  $download_csv = l(t('Download CSV'), '/solr/select?q=' . $q . '&fq=' . $fq . '&fl=' . $fl . '&wt=csv');
+  $content = theme('data_row', array('headings' => $headings, 'rows' => $results, 'download_csv' => $download_csv));
+  return array($subject, $content);
+}
+
 
 function upitt_dashboard_theme() {
   return array(
