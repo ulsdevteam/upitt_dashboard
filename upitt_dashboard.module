@@ -7,22 +7,23 @@ include_once('includes/reports.inc');
  */
 function upitt_dashboard_menu() {
   $items = array(
-    'admin/islandora/tools/upitt_dashboard' => array(
-      'title' => 'University of Pittsburgh Admin Dashboard',
-      'description' => 'Configure options related to the Admin Dashboard.',
-      'page callback' => 'drupal_get_form',
-      'page arguments' => array('upitt_dashboard_admin_form'),
-      'access arguments' => array('administer site configuration'),
-      'file' => 'includes/admin.form.inc',
-    ),
     'upitt_dashboard/report_block/%/downloadcsv' => array(
       'page callback' => 'drupal_get_form',
       'page arguments' => array('upitt_dashboard_downloadcsv', 2),
       'access arguments' => array('administer site configuration'),
     ),
+    'upitt_dashboard/report_block/%/page/%' => array(
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('upitt_dashboard_page', 2, 4),
+      'access arguments' => array('administer site configuration'),
+    ),
   );
 
   return $items;
+}
+
+function upitt_dashboard_page($form_state, $form, $block_delta, $page) {
+  return TRUE;
 }
 
 /**

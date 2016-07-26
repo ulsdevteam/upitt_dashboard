@@ -14,3 +14,5 @@
     <?php endif; ?>
     </ul>
   </div>
+  <div><?php echo $table;?></div>
+  <div><?php echo $paging;?></div>
