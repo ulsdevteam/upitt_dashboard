@@ -97,3 +97,20 @@ function upitt_dashboard_downloadcsv($form_state, $form, $block_delta) {
   header('Content-Disposition: attachment; filename="export_' . $date . '_' . $block_delta . '.csv";');
   drupal_exit();
 }
+
+/**
+ * Implements hook_preprocess_theme().
+ *
+ * This code will remove the sidebar and must check to see whether or not the path is on a user page.
+ */
+function upitt_dashboard_preprocess_page(&$vars) {
+  global $user;
+  $item = menu_get_item();
+ 
+  if (is_array($item)) {
+    if ($item['map'][0] == 'user') {
+      $vars['page']['sidebar'] = array();
+    }
+  }
+}
+
