@@ -12,11 +12,16 @@ function upitt_dashboard_menu() {
       'page arguments' => array('upitt_dashboard_downloadcsv', 2),
       'access arguments' => array('administer site configuration'),
     ),
-    'upitt_dashboard/report_block/%/page/%' => array(
+    'upitt_dashboard/report_block/%/all' => array(
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('upitt_dashboard_all', 2),
+      'access arguments' => array('administer site configuration'),
+    ),
+/*    'upitt_dashboard/report_block/%/page/%' => array(
       'page callback' => 'drupal_get_form',
       'page arguments' => array('upitt_dashboard_page', 2, 4),
       'access arguments' => array('administer site configuration'),
-    ),
+    ),*/
   );
 
   return $items;
@@ -49,6 +54,12 @@ function upitt_dashboard_block_info() {
       'region' => 'dashboard_inactive',
       'cache' => DRUPAL_CACHE_PER_PAGE,
     ),
+    'orphanImages' => array(
+      'info' => t('Dashboard - Orphan Images (sp_large_image_cmodel)'),
+      'status' => 1,
+      'region' => 'dashboard_inactive',
+      'cache' => DRUPAL_CACHE_PER_PAGE,
+    ),
   );
   return $blocks;
 }
@@ -57,7 +68,6 @@ function upitt_dashboard_block_info() {
  * Implements hook_block_view().
  */
 function upitt_dashboard_block_view($delta = '') {
-  global $theme_key;
   if ($delta == "*uninitialized*") { exit; }
   $fn = 'upitt_dashboard_' . $delta . '_content';
   @list($subject, $content) = (function_exists($fn)) ? $fn(FALSE) :
@@ -68,15 +78,42 @@ function upitt_dashboard_block_view($delta = '') {
   return $block;
 }
 
+function upitt_dashboard_all($form_state, $form, $delta = '') {
+return;
+  $fn = 'upitt_dashboard_' . $delta . '_content';
+  @list($subject, $content) = (function_exists($fn)) ? $fn(FALSE, 0, TRUE) :
+    array('Subject not set {' . $delta . '}',
+          'Content creation function "' . $fn . '{}" does not exist for block "' . $delta . '".');
+  //  $block['subject'] = $subject;
+  //  $block['content'] = $content;
+//  print render($content);
+  print theme('page__islandora', array('page' => array('content' => $content), 'title' => $subject, 'sidebar' => ''));
+}
+
+
+/**
+ * Implements hook_theme().
+ */
 function upitt_dashboard_theme() {
   return array(
     'data_table_wrapper' => array(
       'template' => 'theme/data-table-wrapper',
       'variables' => array(
-        'headings' => NULL,
-        'rows' => NULL,
+        'num_found' => 0,
+        'download_csv' => '',
+        'search_link' => '',
+        'view_all' => '',
+        'table' => NULL,
       ),
     ),
+/*    'page__islandora' => array(
+      'template' => 'theme/page--islandora',
+      'variables' => array(
+        'content' => NULL,
+        'sidebar' => NULL
+      ),
+    ),
+*/
   );
 }
 

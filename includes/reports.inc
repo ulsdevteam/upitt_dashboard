@@ -6,7 +6,7 @@
 
 define('CST_ITEMS_PER_PAGE', 20);
 
-function upitt_dashboard_test1_content($csv = FALSE, $page = 0) {
+function upitt_dashboard_test1_content($csv = FALSE, $page = 0, $all = FALSE) {
   $delta = 'test1';
   $subject = 'Orphan Page (BookCModel) report';
   $q = '(PID:pitt\:*) AND -RELS_EXT_isPageOf_uri_s:["" TO *] AND RELS_EXT_hasModel_uri_s:(*info\:fedora\/islandora\:pageCModel*)';
@@ -16,10 +16,10 @@ function upitt_dashboard_test1_content($csv = FALSE, $page = 0) {
                     'fgs_label_s' => 'Fedora Label',
                     'RELS_EXT_isMemberOfSite_uri_ms' => 'Member of Sites',
                     'fedora_datastreams_ms' => 'Datastreams');
-  return _get_SOLR_report($delta, $subject, $q, $fq, $fl, $headings, $csv, $page);
+  return _get_SOLR_report($delta, $subject, $q, $fq, $fl, $headings, $csv, $page, $all);
 }
 
-function upitt_dashboard_test2_content($csv = FALSE, $page = 0) {
+function upitt_dashboard_test2_content($csv = FALSE, $page = 0, $all = FALSE) {
   $delta = 'test2';
   $subject = 'WebServices needs to add TN_LARGE';
   $q = '(PID:pitt\:*) AND (RELS_EXT_hasModel_uri_s:info\:fedora\/islandora\:bookCModel)';
@@ -30,10 +30,10 @@ function upitt_dashboard_test2_content($csv = FALSE, $page = 0) {
                     'RELS_EXT_isMemberOfSite_uri_ms' => 'Member of Sites',
                     'fedora_datastreams_ms' => 'Datastreams');
 
-  return _get_SOLR_report($delta, $subject, $q, $fq, $fl, $headings, $csv, $page);
+  return _get_SOLR_report($delta, $subject, $q, $fq, $fl, $headings, $csv, $page, $all);
 }
 
-function upitt_dashboard_orphanManuscript_content($csv = FALSE, $page = 0) {
+function upitt_dashboard_orphanManuscript_content($csv = FALSE, $page = 0, $all = FALSE) {
   $delta = 'orphanManuscript';
   $subject = 'Orphan manuscript ("Book")';
   $q = '(PID:pitt\:*) AND -RELS_EXT_isMemberOfCollection_uri_s:["" TO *] AND RELS_EXT_hasModel_uri_s:(*info\:fedora\/islandora\:bookCModel*)';
@@ -43,7 +43,20 @@ function upitt_dashboard_orphanManuscript_content($csv = FALSE, $page = 0) {
                     'fgs_label_s' => 'Fedora Label',
                     'RELS_EXT_hasModel_uri_ms' => 'Model/s',
                     'RELS_EXT_isMemberOfSite_uri_ms' => 'Member of Sites');
-  return _get_SOLR_report($delta, $subject, $q, $fq, $fl, $headings, $csv, $page);
+  return _get_SOLR_report($delta, $subject, $q, $fq, $fl, $headings, $csv, $page, $all);
+}
+
+function upitt_dashboard_orphanImages_content($csv = FALSE, $page = 0, $all = FALSE) {
+  $delta = 'orphanImages';
+  $subject = 'Orphan Images (sp_large_image_cmodel)';
+  $q = '(PID:pitt\:*) AND -RELS_EXT_isMemberOfCollection_uri_s:["" TO *] AND RELS_EXT_hasModel_uri_s:(*info\:fedora\/islandora\:sp_large_image_cmodel*)';
+  $fq = "";
+  $fl = "PID,RELS_EXT_hasModel_uri_ms,RELS_EXT_isMemberOfSite_uri_ms,fgs_label_s";
+  $headings = array('PID' => 'PID',
+                    'fgs_label_s' => 'Fedora Label',
+                    'RELS_EXT_hasModel_uri_ms' => 'Model/s',
+                    'RELS_EXT_isMemberOfSite_uri_ms' => 'Member of Sites');
+  return _get_SOLR_report($delta, $subject, $q, $fq, $fl, $headings, $csv, $page, $all);
 }
 
 /**
@@ -64,12 +77,13 @@ function upitt_dashboard_orphanManuscript_content($csv = FALSE, $page = 0) {
  *               CST_ITEMS_PER_PAGE to calculate solr "start" value
  * @return type array of themed block content and the block subject
  */
-function _get_SOLR_report($delta, $subject, $q, $fq, $fl, $headings, $csv, $page) {
+function _get_SOLR_report($delta, $subject, $q, $fq, $fl, $headings, $csv, $page, $all) {
+  $num_found = _get_numFound($q, $fq);
   module_load_include('inc', 'islandora_solr_search', 'includes/utilities');
   $query_processor = new IslandoraSolrQueryProcessor();
   $query_processor->solrQuery = $q;
   $query_processor->solrStart = CST_ITEMS_PER_PAGE * $page;
-  $query_processor->solrLimit = CST_ITEMS_PER_PAGE;
+  $query_processor->solrLimit = ($all) ? 40000 : CST_ITEMS_PER_PAGE;
   $query_processor->solrParams = array(
     'fl' => $fl,
     'fq' => $fq,
@@ -100,11 +114,16 @@ function _get_SOLR_report($delta, $subject, $q, $fq, $fl, $headings, $csv, $page
   }
 
   $search_link = ""; //l(t('Results as Search'), '/islandora/search?islandora_solr_search_navigation=0&f[0]=' . $q . '&f[1]=' . $fq);
+  $view_all = ($all || $num_found < CST_ITEMS_PER_PAGE) ? '' : l(t('View all'), 'upitt_dashboard/report_block/' . $delta . '/all');
   if (!$csv) {
     $download_csv = l(t('Download CSV'), 'upitt_dashboard/report_block/' . $delta . '/downloadcsv');
-    $paging = theme('pager', array('element' => $page / CST_ITEMS_PER_PAGE));
     $table = theme('table', array('header' => $headings, 'rows' => $results));
-    $content = theme('data_table_wrapper', array('rows' => $results, 'download_csv' => $download_csv, 'search_link' => $search_link, 'paging'=>$paging, 'table' => $table));
+    $content = theme('data_table_wrapper', 
+      array('download_csv' => $download_csv, 
+            'search_link' => $search_link, 
+            'view_all' => $view_all,
+            'num_found' => $num_found, 
+            'table' => $table));
   } else {
     $filename = tempnam('/tmp', 'CSV_');
     $fp = fopen($filename, 'w');
@@ -116,6 +135,29 @@ function _get_SOLR_report($delta, $subject, $q, $fq, $fl, $headings, $csv, $page
     $content = file($filename);
     @unlink($filename);
   }
-  return array($subject, $content);
+  return array($subject, $content, $num_found);
 }
 
+function _get_numFound($q, $fq) {
+  module_load_include('inc', 'islandora_solr_search', 'includes/utilities');
+  $query_processor = new IslandoraSolrQueryProcessor();
+  $query_processor->solrQuery = $q;
+  $query_processor->solrStart = 0;
+  $query_processor->solrLimit = 0;
+  $query_processor->solrParams = array(
+    'fl' => '',
+    'fq' => $fq,
+  );
+  $url = parse_url(variable_get('islandora_solr_url', 'localhost:8080/solr'));
+  $solr = new Apache_Solr_Service($url['host'], $url['port'], $url['path'] . '/');
+  $solr->setCreateDocuments(FALSE);
+  $num_found = 0;
+  try {
+    $search_results = $solr->search($query_processor->solrQuery, $query_processor->solrStart, $query_processor->solrLimit, $query_processor->solrParams, 'GET');
+    $tmp = json_decode($search_results->getRawResponse(), TRUE);
+    $num_found = $tmp['response']['numFound'];
+  }
+  catch (Exception $e) {
+  }
+  return $num_found;
+}
