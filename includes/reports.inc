@@ -1,7 +1,7 @@
-<?php 
+<?php
 
-/** Unit to store the content functions related to each report 
- * 
+/** Unit to store the content functions related to each report
+ *
  */
 
 define('CST_ITEMS_PER_PAGE', 20);
@@ -11,7 +11,7 @@ function upitt_dashboard_test1_content($csv = FALSE, $page = 0) {
   $subject = 'Orphan Page (BookCModel) report';
   $q = '(PID:pitt\:*) AND -RELS_EXT_isPageOf_uri_s:["" TO *] AND RELS_EXT_hasModel_uri_s:(*info\:fedora\/islandora\:pageCModel*)';
   $fq = "";
-  $fl = "PID,fedora_datastreams_ms,isMemberOfSite,fgs_label_s,RELS_EXT_isMemberOfSite_uri_ms";
+  $fl = "PID,fedora_datastreams_ms,fgs_label_s,RELS_EXT_isMemberOfSite_uri_ms";
   $headings = array('PID' => 'PID',
                     'fgs_label_s' => 'Fedora Label',
                     'RELS_EXT_isMemberOfSite_uri_ms' => 'Member of Sites',
@@ -24,7 +24,7 @@ function upitt_dashboard_test2_content($csv = FALSE, $page = 0) {
   $subject = 'WebServices needs to add TN_LARGE';
   $q = '(PID:pitt\:*) AND (RELS_EXT_hasModel_uri_s:info\:fedora\/islandora\:bookCModel)';
   $fq = "-fedora_datastream_latest_TN_LARGE_ID_ms:[* TO *]";
-  $fl = "PID,fedora_datastreams_ms,isMemberOfSite,fgs_label_s,RELS_EXT_isMemberOfSite_uri_ms";
+  $fl = "PID,fedora_datastreams_ms,fgs_label_s,RELS_EXT_isMemberOfSite_uri_ms";
   $headings = array('PID' => 'PID',
                     'fgs_label_s' => 'Fedora Label',
                     'RELS_EXT_isMemberOfSite_uri_ms' => 'Member of Sites',
@@ -65,6 +65,11 @@ function upitt_dashboard_orphanManuscript_content($csv = FALSE, $page = 0) {
  * @return type array of themed block content and the block subject
  */
 function _get_SOLR_report($delta, $subject, $q, $fq, $fl, $headings, $csv, $page) {
+  $num_found = _get_numFound($q, $fq, $fl);
+  $pager_element = 0;
+  $x = pager_default_initialize($num_items, CST_ITEMS_PER_PAGE, $pager_element);
+  error_log('pager x = ' . $x . ', page = ' .$page);
+
   module_load_include('inc', 'islandora_solr_search', 'includes/utilities');
   $query_processor = new IslandoraSolrQueryProcessor();
   $query_processor->solrQuery = $q;
@@ -102,9 +107,13 @@ function _get_SOLR_report($delta, $subject, $q, $fq, $fl, $headings, $csv, $page
   $search_link = ""; //l(t('Results as Search'), '/islandora/search?islandora_solr_search_navigation=0&f[0]=' . $q . '&f[1]=' . $fq);
   if (!$csv) {
     $download_csv = l(t('Download CSV'), 'upitt_dashboard/report_block/' . $delta . '/downloadcsv');
-    $paging = theme('pager', array('element' => $page / CST_ITEMS_PER_PAGE));
+    $paging = theme('pager', array('element' => $pager_element));
+error_log('paging = ' . print_r($paging, true));
     $table = theme('table', array('header' => $headings, 'rows' => $results));
-    $content = theme('data_table_wrapper', array('rows' => $results, 'download_csv' => $download_csv, 'search_link' => $search_link, 'paging'=>$paging, 'table' => $table));
+    $content = theme('data_table_wrapper',
+      array('rows' => $results,
+            'download_csv' => $download_csv,
+            'search_link' => $search_link, 'num_found' => $num_found, 'paging'=>$paging, 'table' => $table));
   } else {
     $filename = tempnam('/tmp', 'CSV_');
     $fp = fopen($filename, 'w');
@@ -116,6 +125,29 @@ function _get_SOLR_report($delta, $subject, $q, $fq, $fl, $headings, $csv, $page
     $content = file($filename);
     @unlink($filename);
   }
-  return array($subject, $content);
+  return array($subject, $content, $num_found);
 }
 
+function _get_numFound($q, $fq, $fl) {
+  module_load_include('inc', 'islandora_solr_search', 'includes/utilities');
+  $query_processor = new IslandoraSolrQueryProcessor();
+  $query_processor->solrQuery = $q;
+  $query_processor->solrStart = 0;
+  $query_processor->solrLimit = 1;
+  $query_processor->solrParams = array(
+    'fl' => $fl,
+    'fq' => $fq,
+  );
+  $url = parse_url(variable_get('islandora_solr_url', 'localhost:8080/solr'));
+  $solr = new Apache_Solr_Service($url['host'], $url['port'], $url['path'] . '/');
+  $solr->setCreateDocuments(FALSE);
+  $num_found = 0;
+  try {
+    $search_results = $solr->search($query_processor->solrQuery, $query_processor->solrStart, $query_processor->solrLimit, $query_processor->solrParams, 'GET');
+    $tmp = json_decode($search_results->getRawResponse(), TRUE);
+    $num_found = $tmp['response']['numFound'];
+  }
+  catch (Exception $e) {
+  }
+  return $num_found;
+}

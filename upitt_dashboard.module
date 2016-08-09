@@ -23,6 +23,7 @@ function upitt_dashboard_menu() {
 }
 
 function upitt_dashboard_page($form_state, $form, $block_delta, $page) {
+  die("pagination handler");
   return TRUE;
 }
 
@@ -77,6 +78,11 @@ function upitt_dashboard_theme() {
         'rows' => NULL,
       ),
     ),
+/*    'page__user__dashboard' => array(
+      'file' => 'theme/theme.inc',
+      'template' => 'theme/page--user--dashboard',
+      'variables' => array('user' => NULL),
+    ), */
   );
 }
 
