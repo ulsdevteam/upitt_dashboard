@@ -40,10 +40,11 @@ function upitt_dashboard_islandora_collection_stats_content($csv = FALSE, $page 
                     'count' => 'Count',
                     'PID' => 'PID',
                     'model_desc' => 'Model');
-  $sql = 'SELECT i.date, i.PID, m.model_desc, i.count ' .
-         'FROM islandora_stats_collection_models i ' .
-         'JOIN islandora_stats_models m ON (m.model_id = i.model_id)' .
-         'GROUP BY i.date';
+  $sql = 'SELECT i.date, i.count, i.PID, m.model_desc ' .
+         'FROM {islandora_stats_collection_models} i ' .
+         'JOIN {islandora_stats_models} m ON (m.model_id = i.model_id) ' .
+         'WHERE i.count > 0 ' .
+         'ORDER BY m.model_desc, i.date, i.PID';
   return _get_SQL_report($delta, $subject, $sql, $headings, $csv, $page, $all);
 }
 
@@ -90,9 +91,18 @@ function upitt_dashboard_orphanImages_content($csv = FALSE, $page = 0, $all = FA
  * @return type array of themed block content and the block subject
  */
 function _get_SQL_report($delta, $subject, $sql, $headings, $csv, $page, $all) {
-  $results = db_query($sql)->fetchAllAssoc('date');
+  // error_log('in _get_SQL_report(' . $delta . ', ' . $subject . ', ' . $sql . ', '.  print_r($headings, true). ', csv, page, all)');
+  $results_objs = db_query($sql)->fetchAll();
 
-  error_log(print_r($results, true));
+  $results = array();
+  foreach ($results_objs as $obj) {
+    $arr = (array) $obj;
+    if (isset($arr['PID'])) {
+      $arr['PID'] = l($arr['PID'], '/islandora/object/' . $arr['PID']);
+    }
+    $results[] = $arr;
+  } 
+  $num_found = count($results);
 
   $search_link = ""; //l(t('Results as Search'), '/islandora/search?islandora_solr_search_navigation=0&f[0]=' . $q . '&f[1]=' . $fq);
   $view_all = ($all || $num_found < CST_ITEMS_PER_PAGE) ? '' : l(t('View all'), 'upitt_dashboard/report_block/' . $delta . '/all');
@@ -116,7 +126,6 @@ function _get_SQL_report($delta, $subject, $sql, $headings, $csv, $page, $all) {
     $content = file($filename);
     @unlink($filename);
   }
-
   return array($subject, $content, $num_found);
 }
 

@@ -28,7 +28,7 @@ function upitt_dashboard_menu() {
 }
 
 function upitt_dashboard_page($form_state, $form, $block_delta, $page) {
-  die("pagination handler");
+//   die("pagination handler");
   return TRUE;
 }
 
@@ -86,14 +86,13 @@ function upitt_dashboard_block_view($delta = '') {
 }
 
 function upitt_dashboard_all($form_state, $form, $delta = '') {
-return;
   $fn = 'upitt_dashboard_' . $delta . '_content';
   @list($subject, $content) = (function_exists($fn)) ? $fn(FALSE, 0, TRUE) :
     array('Subject not set {' . $delta . '}',
           'Content creation function "' . $fn . '{}" does not exist for block "' . $delta . '".');
   //  $block['subject'] = $subject;
   //  $block['content'] = $content;
-//  print render($content);
+  print render($content);
   print theme('page__islandora', array('page' => array('content' => $content), 'title' => $subject, 'sidebar' => ''));
 }
 
