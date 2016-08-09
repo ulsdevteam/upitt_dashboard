@@ -33,6 +33,20 @@ function upitt_dashboard_test2_content($csv = FALSE, $page = 0, $all = FALSE) {
   return _get_SOLR_report($delta, $subject, $q, $fq, $fl, $headings, $csv, $page, $all);
 }
 
+function upitt_dashboard_islandora_collection_stats_content($csv = FALSE, $page = 0, $all = FALSE) {
+  $delta = 'islandora_collection_stats';
+  $subject = 'Islandora Collections';
+  $headings = array('date' => 'Date',
+                    'count' => 'Count',
+                    'PID' => 'PID',
+                    'model_desc' => 'Model');
+  $sql = 'SELECT i.date, i.PID, m.model_desc, i.count ' .
+         'FROM islandora_stats_collection_models i ' .
+         'JOIN islandora_stats_models m ON (m.model_id = i.model_id)' .
+         'GROUP BY i.date';
+  return _get_SQL_report($delta, $subject, $sql, $headings, $csv, $page, $all);
+}
+
 function upitt_dashboard_orphanManuscript_content($csv = FALSE, $page = 0, $all = FALSE) {
   $delta = 'orphanManuscript';
   $subject = 'Orphan manuscript ("Book")';
@@ -57,6 +71,53 @@ function upitt_dashboard_orphanImages_content($csv = FALSE, $page = 0, $all = FA
                     'RELS_EXT_hasModel_uri_ms' => 'Model/s',
                     'RELS_EXT_isMemberOfSite_uri_ms' => 'Member of Sites');
   return _get_SOLR_report($delta, $subject, $q, $fq, $fl, $headings, $csv, $page, $all);
+}
+
+/**
+ * This returns the block-themed $subject, $content based on the report
+ * parameters.  This is called by the upitt_dashboard_block_view code by a
+ * dynamically created function name that corresponds to the block delta like
+ * upitt_dashboard_{BLOCK_DELTA}_content.
+ *
+ * @param type $delta - block identifier.
+ * @param type $subject - Title of the block
+ * @param type $sql - the SQL statement behind the report
+ * @param type $headings - array of SOLR fieldnames and the titles for those
+ *               to use for the table output.
+ * @param type $csv - TRUE / FALSE - whether or not the output should be CSV.
+ * @param type $page - which page of the data the report is pulling, uses
+ *               CST_ITEMS_PER_PAGE to calculate solr "start" value
+ * @return type array of themed block content and the block subject
+ */
+function _get_SQL_report($delta, $subject, $sql, $headings, $csv, $page, $all) {
+  $results = db_query($sql)->fetchAllAssoc('date');
+
+  error_log(print_r($results, true));
+
+  $search_link = ""; //l(t('Results as Search'), '/islandora/search?islandora_solr_search_navigation=0&f[0]=' . $q . '&f[1]=' . $fq);
+  $view_all = ($all || $num_found < CST_ITEMS_PER_PAGE) ? '' : l(t('View all'), 'upitt_dashboard/report_block/' . $delta . '/all');
+  if (!$csv) {
+    $download_csv = l(t('Download CSV'), 'upitt_dashboard/report_block/' . $delta . '/downloadcsv');
+    $table = theme('table', array('header' => $headings, 'rows' => $results));
+    $content = theme('data_table_wrapper',
+      array('download_csv' => $download_csv,
+            'search_link' => $search_link,
+            'view_all' => $view_all,
+            'num_found' => $num_found,
+            'table' => $table));
+  } else {
+    $filename = tempnam('/tmp', 'CSV_');
+    $fp = fopen($filename, 'w');
+    fputcsv($fp, $headings);
+    foreach ($results as $fields) {
+      fputcsv($fp, $fields);
+    }
+    fclose($fp);
+    $content = file($filename);
+    @unlink($filename);
+  }
+
+  return array($subject, $content, $num_found);
 }
 
 /**

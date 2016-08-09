@@ -61,6 +61,12 @@ function upitt_dashboard_block_info() {
       'region' => 'dashboard_inactive',
       'cache' => DRUPAL_CACHE_PER_PAGE,
     ),
+    'islandora_collection_stats' => array(
+      'info' => t('Dashboard - Collections'),
+      'status' => 1,
+      'region' => 'dashboard_inactive',
+      'cache' => DRUPAL_CACHE_PER_PAGE,
+    ),
   );
   return $blocks;
 }
