@@ -149,7 +149,7 @@ function _get_SQL_report($delta, $subject, $sql, $headings, $csv, $page, $all) {
  */
 function _get_SOLR_report($delta, $subject, $q, $fq, $fl, $headings, $csv, $page, $all) {
   $num_found = _get_numFound($q, $fq);
-  module_load_include('inc', 'islandora_solr_search', 'includes/utilities');
+  module_load_include('inc', 'islandora_solr', 'includes/utilities');
   $query_processor = new IslandoraSolrQueryProcessor();
   $query_processor->solrQuery = $q;
   $query_processor->solrStart = CST_ITEMS_PER_PAGE * $page;
@@ -209,7 +209,7 @@ function _get_SOLR_report($delta, $subject, $q, $fq, $fl, $headings, $csv, $page
 }
 
 function _get_numFound($q, $fq) {
-  module_load_include('inc', 'islandora_solr_search', 'includes/utilities');
+  module_load_include('inc', 'islandora_solr', 'includes/utilities');
   $query_processor = new IslandoraSolrQueryProcessor();
   $query_processor->solrQuery = $q;
   $query_processor->solrStart = 0;
