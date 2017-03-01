@@ -37,6 +37,18 @@ function upitt_dashboard_page($form_state, $form, $block_delta, $page) {
  */
 function upitt_dashboard_block_info() {
   $blocks = array(
+    'django1' =>  array(
+      'info' => t('Workflow - Objects from `workflow_django` that are in Islandora'),
+      'status' => 1,
+      'region' => 'dashboard_inactive',
+      'cache' => DRUPAL_CACHE_PER_PAGE,
+    ),
+    'django2' =>  array(
+      'info' => t('Workflow - second query'),
+      'status' => 1,
+      'region' => 'dashboard_inactive',
+      'cache' => DRUPAL_CACHE_PER_PAGE,
+    ),
     'test1' => array(
       'info' => t('Dashboard - Orphan Page (BookCModel) report'),
       'status' => 1,
@@ -45,6 +57,12 @@ function upitt_dashboard_block_info() {
     ),
     'test2' => array(
       'info' => t('Dashboard - WebServices needs to add TN_LARGE'),
+      'status' => 1,
+      'region' => 'dashboard_inactive',
+      'cache' => DRUPAL_CACHE_PER_PAGE,
+    ),
+    'contentObjectsCsv' => array(
+      'info' => t('Dashboard - Audit | Content Objects Report'),
       'status' => 1,
       'region' => 'dashboard_inactive',
       'cache' => DRUPAL_CACHE_PER_PAGE,
@@ -73,11 +91,11 @@ function upitt_dashboard_block_info() {
 
 /**
  * Implements hook_block_view().
- */
+ */ 
 function upitt_dashboard_block_view($delta = '') {
   if ($delta == "*uninitialized*") { exit; }
-  $fn = 'upitt_dashboard_' . $delta . '_content';
-  @list($subject, $content) = (function_exists($fn)) ? $fn(FALSE) :
+  $fn = 'upitt_dashboard_' . $delta . '_content'; 
+  @list($subject, $content) = (function_exists($fn)) ? $fn(FALSE, 0, FALSE) :
     array('Subject not set {' . $delta . '}',
           'Content creation function "' . $fn . '{}" does not exist for block "' . $delta . '".');
   $block['subject'] = $subject;
@@ -85,15 +103,13 @@ function upitt_dashboard_block_view($delta = '') {
   return $block;
 }
 
+
 function upitt_dashboard_all($form_state, $form, $delta = '') {
   $fn = 'upitt_dashboard_' . $delta . '_content';
   @list($subject, $content) = (function_exists($fn)) ? $fn(FALSE, 0, TRUE) :
     array('Subject not set {' . $delta . '}',
           'Content creation function "' . $fn . '{}" does not exist for block "' . $delta . '".');
-  //  $block['subject'] = $subject;
-  //  $block['content'] = $content;
-  print render($content);
-  print theme('page__islandora', array('page' => array('content' => $content), 'title' => $subject, 'sidebar' => ''));
+  print theme('report', array('page' => array('content' => $content), 'title' => $subject, 'sidebar' => ''));
 }
 
 
@@ -112,29 +128,41 @@ function upitt_dashboard_theme() {
         'table' => NULL,
       ),
     ),
-/*    'page__islandora' => array(
-      'template' => 'theme/page--islandora',
+    'report' => array(
+      'template' => 'theme/report',
       'variables' => array(
         'content' => NULL,
         'sidebar' => NULL
       ),
     ),
-*/
   );
 }
 
 function upitt_dashboard_downloadcsv($form_state, $form, $block_delta) {
   // drupal_set_message('Download CSV for '. $block_delta);
   $fn = 'upitt_dashboard_' . $block_delta . '_content';
-  @list($subject, $content) = (function_exists($fn)) ? $fn(TRUE) :
-    array('Subject not set {' . $block_delta . '}',
-          'Content creation function "' . $fn . '{}" does not exist for block "' . $block_delta . '".');
+  $fn_getcount = 'upitt_dashboard_' . $block_delta . '_getcount';
 
-  foreach ($content as $content_line) {
-    echo $content_line;
+  if (function_exists($fn)) {
+    $results_count = $fn_getcount();
+    // tell the browser it's going to be a csv file
+    header('Content-Type: application/csv');
+
+    // if called via "all" or "csv", the paging size is 5000
+    $page = 0;
+    for ($i = 0; $i < $results_count; $i+= 5000) {
+      @list($subject, $content) = $fn(TRUE, $page);
+      foreach ($content as $content_line) { 
+        echo $content_line;
+      }
+      $page++;
+    }
   }
-  // tell the browser it's going to be a csv file
-  header('Content-Type: application/csv');
+  else {
+    $subject = 'Subject not set {' . $block_delta . '}';
+    echo 'Content creation function "' . $fn . '{}" does not exist for block "' . $block_delta . '".';
+  }
+
   // tell the browser we want to save it instead of displaying it
   $date = date('Y-m-d');
   header('Content-Disposition: attachment; filename="export_' . $date . '_' . $block_delta . '.csv";');

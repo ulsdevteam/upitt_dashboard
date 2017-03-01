@@ -8,5 +8,4 @@
 
 function upitt_dashboard_preprocess_page(&$variables) {
   $variables['sidebar-first'] = array();
-  dpm($variables);
 }
